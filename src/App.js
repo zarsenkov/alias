@@ -1,55 +1,166 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Check, X, RotateCcw } from 'lucide-react';
+import './App.css';
 
 // --- БАЗА СЛОВ ---
-const ALIAS_WORDS = ["Синхрофазотрон", "Оливье", "Гравитация", "Шахматы", "Трамвай", "Звездопад", "Борщ", "Айсберг", "Чебурашка"];
+const DICTIONARY = {
+  "❤️ ХОТ": ["Свидание", "Поцелуй", "Романтика", "Страсть", "Флирт", "Сердце", "Ужин"],
+  "🥳 ПАТИ": ["Танцы", "Караоке", "Коктейль", "Музыка", "Друзья", "Вечеринка", "Смех"],
+  "🧠 УМ": ["Интеллект", "Логика", "Философия", "Космос", "Наука", "Квант", "Теория"]
+};
 
 export default function App() {
-  const [screen, setScreen] = useState('start'); // start, play, result
-  const [word, setWord] = useState('');
-  const [score, setScore] = useState(0);
+  // --- СОСТОЯНИЯ (STATE) ---
+  const [screen, setScreen] = useState('setup'); // setup, ready, game, results
+  const [teams, setTeams] = useState([
+    { name: 'Команда 1', score: 0 },
+    { name: 'Команда 2', score: 0 }
+  ]);
+  const [currentTeamIdx, setCurrentTeamIdx] = useState(0);
+  const [category, setCategory] = useState("❤️ ХОТ");
+  const [timer, setTimer] = useState(60);
+  const [isActive, setIsActive] = useState(false);
+  const [currentWord, setCurrentWord] = useState('');
+  const [wordsLog, setWordsLog] = useState([]); // Для экрана итогов раунда
 
-  // --- ПОЛУЧИТЬ СЛОВО ---
-  // Берет случайное значение из массива
-  const nextWord = () => setWord(ALIAS_WORDS[Math.floor(Math.random() * ALIAS_WORDS.length)]);
+  // --- ЛОГИКА ТАЙМЕРА ---
+  useEffect(() => {
+    let interval = null;
+    if (isActive && timer > 0) {
+      interval = setInterval(() => setTimer(t => t - 1), 1000);
+    } else if (timer === 0 && isActive) {
+      setIsActive(false);
+      setScreen('results');
+    }
+    return () => clearInterval(interval);
+  }, [isActive, timer]);
 
-  // --- СТАРТ РАУНДА ---
+  // --- ФУНКЦИИ ---
+
+  // Выбор нового слова
+  const nextWord = useCallback(() => {
+    const list = DICTIONARY[category];
+    const word = list[Math.floor(Math.random() * list.length)];
+    setCurrentWord(word);
+  }, [category]);
+
+  // Старт подготовки
+  const prepareRound = (cat) => {
+    setCategory(cat);
+    setTimer(60);
+    setWordsLog([]);
+    setScreen('ready');
+  };
+
+  // Старт раунда
   const startRound = () => {
-    setScore(0);
+    setScreen('game');
+    setIsActive(true);
     nextWord();
-    setScreen('play');
+  };
+
+  // Кнопка "Угадано"
+  const handleScore = (isCorrect) => {
+    const entry = { word: currentWord, correct: isCorrect };
+    setWordsLog([entry, ...wordsLog]);
+    
+    // Обновляем общий счет команды сразу
+    const newTeams = [...teams];
+    newTeams[currentTeamIdx].score += isCorrect ? 1 : -1;
+    setTeams(newTeams);
+    
+    nextWord();
+  };
+
+  // Переключение команды и выход в лобби
+  const finishTurn = () => {
+    setCurrentTeamIdx(currentTeamIdx === 0 ? 1 : 0);
+    setScreen('setup');
   };
 
   return (
-    <div style={styles.container}>
+    <div className="app-shell">
+      
+      {/* HEADER (Показывается в игре) */}
+      <header className={`pop-header ${screen === 'game' ? 'visible' : ''}`}>
+        <div className="timer-bubble">⏱ {timer}s</div>
+        <div className="score-pill">🏆 {teams[currentTeamIdx].score}</div>
+      </header>
+
       <AnimatePresence mode="wait">
         
-        {/* ЭКРАН 1: СТАРТ */}
-        {screen === 'start' && (
-          <motion.div key="1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.content}>
-            <h1 style={styles.logo}>ALIAS<span style={{color: '#FF4400'}}>.</span></h1>
-            <p style={styles.desc}>Объясняйте слова, не используя однокоренные.</p>
-            <button className="swiss-button" style={styles.mainBtn} onClick={startRound}>
-              НАЧАТЬ <Play size={20} fill="white" />
+        {/* ЭКРАН 1: SETUP */}
+        {screen === 'setup' && (
+          <motion.div key="setup" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="pop-screen active">
+            <h1 className="pop-title">ALIAS<span>POP</span></h1>
+            
+            <div className="section-label">Выберите категорию</div>
+            <div className="chips-group">
+              {Object.keys(DICTIONARY).map(cat => (
+                <button 
+                  key={cat} 
+                  className={`pop-chip ${category === cat ? 'active' : ''}`}
+                  onClick={() => setCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="summary-box">
+              Ход: {teams[currentTeamIdx].name}<br/>
+              Общий счет: {teams[currentTeamIdx].score}
+            </div>
+
+            <button className="btn-pop-main" onClick={() => prepareRound(category)}>
+              К ИГРЕ
             </button>
           </motion.div>
         )}
 
-        {/* ЭКРАН 2: ИГРА */}
-        {screen === 'play' && (
-          <motion.div key="2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.content}>
-            <div style={styles.scoreCounter}>{score}</div>
-            <motion.h2 key={word} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} style={styles.wordDisplay}>
-              {word}
-            </motion.h2>
-            
-            <div style={styles.controls}>
-              <button style={styles.skipBtn} onClick={nextWord}><X size={32} /></button>
-              <button style={styles.doneBtn} onClick={() => { setScore(score+1); nextWord(); }}><Check size={32} /></button>
+        {/* ЭКРАН 2: READY */}
+        {screen === 'ready' && (
+          <motion.div key="ready" initial={{scale:0.9}} animate={{scale:1}} className="pop-screen active">
+            <div className="team-ready-box">
+              <div className="section-label">Приготовьтесь</div>
+              <h3>{teams[currentTeamIdx].name}</h3>
+              <p style={{marginTop: '10px', fontWeight: 800}}>Категория: {category}</p>
             </div>
-            
-            <button style={styles.endBtn} onClick={() => setScreen('start')}>ЗАВЕРШИТЬ</button>
+            <button className="btn-pop-main" onClick={startRound}>Я ГОТОВ(А)!</button>
+          </motion.div>
+        )}
+
+        {/* ЭКРАН 3: GAME */}
+        {screen === 'game' && (
+          <motion.div key="game" initial={{y:100}} animate={{y:0}} className="pop-screen active">
+            <div className="card-container">
+              <div className="word-card">
+                <div id="word-display">{currentWord}</div>
+              </div>
+            </div>
+            <div className="swipe-hint">Угадайте как можно больше!</div>
+            <div className="game-actions">
+              <button className="btn-pop-main btn-skip" onClick={() => handleScore(false)}>ПРОПУСК</button>
+              <button className="btn-pop-main btn-check" onClick={() => handleScore(true)}>УГАДАНО</button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ЭКРАН 4: RESULTS (ИТОГИ РАУНДА) */}
+        {screen === 'results' && (
+          <motion.div key="results" initial={{opacity:0}} animate={{opacity:1}} className="pop-screen active">
+            <h2 className="pop-title" style={{fontSize: '2rem'}}>ИТОГИ</h2>
+            <div className="pop-list">
+              {wordsLog.map((item, i) => (
+                <div key={i} className="word-row">
+                  <span>{item.word}</span>
+                  <div className={`status-icon ${item.correct ? 'status-ok' : 'status-err'}`}>
+                    {item.correct ? '✔' : '✘'}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="btn-pop-main" onClick={finishTurn}>ПЕРЕДАТЬ ХОД</button>
           </motion.div>
         )}
 
@@ -57,18 +168,3 @@ export default function App() {
     </div>
   );
 }
-
-// --- СТИЛИ SWISS ---
-const styles = {
-  container: { height: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px' },
-  content: { textAlign: 'center', width: '100%', maxWidth: '500px' },
-  logo: { fontSize: '64px', fontWeight: '900', letterSpacing: '-3px', margin: '0 0 20px 0' },
-  desc: { fontSize: '16px', lineHeight: '1.5', marginBottom: '40px', fontWeight: '400' },
-  mainBtn: { width: '100%', padding: '24px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', cursor: 'pointer' },
-  wordDisplay: { fontSize: '48px', fontWeight: '900', textTransform: 'uppercase', margin: '60px 0' },
-  scoreCounter: { fontSize: '120px', fontWeight: '900', opacity: 0.05, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: -1 },
-  controls: { display: 'flex', gap: '20px', marginBottom: '40px' },
-  skipBtn: { flex: 1, padding: '30px', background: '#F2F2F2', border: 'none', cursor: 'pointer' },
-  doneBtn: { flex: 1, padding: '30px', background: '#FF4400', color: 'white', border: 'none', cursor: 'pointer' },
-  endBtn: { background: 'none', border: 'none', textDecoration: 'underline', fontSize: '12px', fontWeight: '900', cursor: 'pointer', opacity: 0.3 }
-};

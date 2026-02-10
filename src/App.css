@@ -116,3 +116,22 @@ body {
 .team-ready-box h3 { font-size: 2rem; color: var(--accent); }
 
 .swipe-hint { text-align: center; font-size: 0.7rem; font-weight: 800; opacity: 0.5; margin-bottom: 10px; }
+.pop-list { 
+    flex-grow: 1; 
+    overflow-y: auto; /* Включает прокрутку, если слов много */
+    margin: 15px 0; 
+    border: 3px solid var(--black); 
+    border-radius: 15px; 
+    background: var(--white);
+    max-height: 50vh; /* Ограничиваем высоту, чтобы кнопка не улетала */
+}
+
+/* Стилизация полосы прокрутки (для красоты) */
+.pop-list::-webkit-scrollbar { width: 8px; }
+.pop-list::-webkit-scrollbar-thumb { background: var(--black); border-radius: 10px; }
+
+/* Фиксация кнопок внизу экрана */
+.btn-pop-main {
+    flex-shrink: 0; /* Чтобы кнопка не сжималась */
+    margin-top: auto;
+}
